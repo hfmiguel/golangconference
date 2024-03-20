@@ -1,11 +1,16 @@
-#Dockerfile
-FROM golang:1.16 AS build
+# Builder stage
+FROM golang:1.21.0-alpine as builder
+ARG CGO_ENABLED=0
+ARG GOOS=linux
+WORKDIR /app
 
-WORKDIR /src
-COPY . .
-RUN CGO_ENABLED=0 go build -o /bin/project
+COPY *.go .
+RUN go mod init gofelix && go mod tidy
+COPY go.mod go.sum ./
+RUN go mod download && go build -ldflags '-w -s' -a -installsuffix cgo -o /gofelix
 
-# Etapa de execução
+# Final stage
 FROM scratch
-COPY --from=build /bin/project /bin/project
-ENTRYPOINT ["/bin/project"]
+WORKDIR /app
+COPY --from=builder /gofelix /http-server
+ENTRYPOINT ["/http-server"]
